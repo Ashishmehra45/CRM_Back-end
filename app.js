@@ -11,7 +11,11 @@ connectDB();
 
 // 2. Middlewares (CORS ko sabse upar rakho)
 app.use(cors({
-  origin: 'http://localhost:5173', // Aapka Vite frontend
+  // Array mein local aur live dono URLs daal do
+  origin: [
+    'http://localhost:5173', 
+    'https://crm-frontend-bay-seven.vercel.app'
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));
