@@ -1,18 +1,17 @@
 const router = require('express').Router();
 const User = require('../models/registerModel');
 const bcrypt = require('bcryptjs');
-// const { onlyWorker } = require('../middleware/middleware/authMiddleware');
+const { onlyWorker } = require('../middleware/authMiddleware');
 const jwt = require('jsonwebtoken');
+const Lead = require('../models/LeadModel');
 
-router.post('/register',  async (req, res) => {
+router.post('/register', async (req, res) => {
   try {
     const { fullName, email, password } = req.body;
 
-    // Check if user exists
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ message: "Email already registered" });
 
-    // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -24,36 +23,35 @@ router.post('/register',  async (req, res) => {
     res.status(500).json(err);
   }
 });
+
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // 1. Validation: Check karo fields khali toh nahi hain
     if (!email || !password) {
       return res.status(400).json({ message: "Email and password are required!" });
     }
 
-    // 2. User ko dhundo email se
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // 3. Password Check: Jo password aaya hai usko hashed password se match karo
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid password" });
     }
 
-    // 4. Token Generation: Agar sab sahi hai toh JWT Token banao
-    // Isme hum User ID aur Role (worker/admin) payload mein daal rahe hain
     const token = jwt.sign(
-      { id: user._id, role: user.role }, 
-      process.env.JWT_SECRET, // Ye aapki .env file mein hona chahiye
-      { expiresIn: '1d' }      // Token 1 din tak valid rahega
+      { 
+        id: user._id,
+        role: user.role,
+        fullName: user.fullName 
+      }, 
+      process.env.JWT_SECRET,
+      { expiresIn: '1d' }
     );
 
-    // 5. Success Response: Token aur User details (minus password) wapas bhejo
     res.status(200).json({
       success: true,
       message: "Login successful!",
@@ -69,6 +67,110 @@ router.post('/login', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error ho gaya!", error: err.message });
+  }
+});
+
+router.post('/add-lead', onlyWorker, async (req, res) => {
+  try {
+    const { companyName, lastName } = req.body;
+
+    if (!companyName || !lastName) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Company Name aur Last Name bharna zaroori hai bhai!" 
+      });
+    }
+
+    const newLead = new Lead({
+      ...req.body,           
+      createdBy: req.user.id, 
+      // 🔥 SAFETY NET: Agar purana token hua toh crash nahi hoga, default naam le lega
+      workerName: req.user.fullName || "Worker (Need Re-login)" 
+    });
+
+    const savedLead = await newLead.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Lead successfully create ho gayi hai!",
+      lead: savedLead
+    });
+
+  } catch (err) {
+    console.error("Lead Error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server side par dikkat aa gayi!",
+      error: err.message
+    });
+  }
+});
+
+router.get('/get-leads', onlyWorker, async (req, res) => {
+  try {
+    // 1. Frontend se bheji hui category nikalenge (URL query se)
+    const { category } = req.query; 
+    
+    // 2. Default Query: Sirf ussi worker ki leads dikhao jisne login kiya hai
+    let query = { createdBy: req.user.id };
+
+    // 3. Category Filter Logic: 
+    // Agar category 'All' nahi hai aur kuch aayi hai, toh query mein add kar do
+    if (category && category !== "All") {
+      query.category = category;
+    }
+
+    // 4. Database se leads dhundo aur nayi wali sabse upar dikhao (sort)
+    const leads = await Lead.find(query).sort({ createdAt: -1 });
+
+    // 5. Frontend ko mast data bhej do
+    res.status(200).json({
+      success: true,
+      count: leads.length,
+      data: leads
+    });
+
+  } catch (err) {
+    console.error("Fetch Leads Error:", err);
+    res.status(500).json({ 
+      success: false, 
+      message: "Server se leads laane mein dikkat aayi!",
+      error: err.message
+    });
+  }
+});
+
+router.post('/add-note/:id', onlyWorker, async (req, res) => {
+  try {
+    const { note } = req.body;
+    const leadId = req.params.id;
+
+    if (!note) {
+      return res.status(400).json({ success: false, message: "Note khali nahi ho sakta!" });
+    }
+
+    const updatedLead = await Lead.findByIdAndUpdate(
+      leadId,
+      {
+        $push: { 
+          timeline: { 
+            note: note, 
+            addedBy: req.user.fullName,
+            timestamp: new Date()
+          } 
+        }
+      },
+      { new: true } // updated data wapas mangne ke liye
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Timeline updated!",
+      timeline: updatedLead.timeline
+    });
+
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
