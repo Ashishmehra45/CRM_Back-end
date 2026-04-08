@@ -6,7 +6,7 @@ const onlyWorker = (req, res, next) => {
     const authHeader = req.headers.authorization;
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ message: "Token missing! Bhai pehle login kar." });
+      return res.status(401).json({ message: "Token missing or invalid!" });
     }
 
     const token = authHeader.split(' ')[1]; // 'Bearer <token>' se sirf token nikalo
@@ -21,7 +21,7 @@ const onlyWorker = (req, res, next) => {
     next();
     
   } catch (error) {
-    return res.status(401).json({ message: "Token expire ho gaya ya invalid hai! Phir se login karo." });
+    return res.status(401).json({ message: "Token is not valid! Please login again." });
   }
 };
 

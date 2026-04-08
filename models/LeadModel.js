@@ -47,7 +47,7 @@ const LeadSchema = new mongoose.Schema({
 
   category: { 
     type: String, 
-    enum: ["FDI", "CIP", "National PMU", "Repnsonate", "-None-", ""]
+    enum: ["FDI", "CIP", "National PMU", "Representation", "-None-", ""]
   },
 
   annualRevenue: String,

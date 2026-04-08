@@ -173,5 +173,25 @@ router.post('/add-note/:id', onlyWorker, async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+router.put('/update-lead/:id', onlyWorker, async (req, res) => {
+  try {
+    const leadId = req.params.id;
+    
+    // Database mein update karo
+    const updatedLead = await Lead.findByIdAndUpdate(
+      leadId,
+      { $set: req.body }, // Jo bhi data frontend se aaye sab update kar do
+      { new: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Lead details updated successfully!",
+      lead: updatedLead
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 module.exports = router;
