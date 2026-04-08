@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/connectDB');
 const workerRoutes = require('./routes/register.route');
+const adminRoutes = require('./routes/admin.routes');
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use(express.json()); // JSON data read karne ke liye
 // 3. Routes
 // Dhyan de: register.route.js mein agar path '/' hai, toh URL niche wala hoga
 app.use('/api/workers', workerRoutes);  
+app.use('/api/admin', adminRoutes);
 
 
 // 4. Server Start

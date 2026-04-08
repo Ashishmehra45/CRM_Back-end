@@ -24,5 +24,17 @@ const onlyWorker = (req, res, next) => {
     return res.status(401).json({ message: "Token is not valid! Please login again." });
   }
 };
+// 🔥 YE WALA HISSA UPDATE KIYA HAI
+const onlyAdmin = (req, res, next) => {
+  // onlyWorker ne pehle hi req.user mein token ka data daal diya hai
+  // Ab hum sirf check karenge ki role 'admin' hai ya nahi
+  if (req.user && req.user.role === 'admin') {
+    next(); // Agar admin hai toh aage badhne do
+  } else {
+    return res.status(403).json({ 
+      message: "Access Denied: Bhai sirf Admin hi ye kar sakta hai!" 
+    });
+  }
+};
 
-module.exports = { onlyWorker };
+module.exports = { onlyWorker, onlyAdmin };

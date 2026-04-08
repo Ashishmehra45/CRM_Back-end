@@ -106,7 +106,7 @@ router.post('/add-lead', onlyWorker, async (req, res) => {
   }
 });
 
-router.get('/get-leads', onlyWorker, async (req, res) => {
+router.get('/get-leads', onlyWorker,  async (req, res) => {
   try {
     // 1. Frontend se bheji hui category nikalenge (URL query se)
     const { category } = req.query; 
