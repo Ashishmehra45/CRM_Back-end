@@ -12,14 +12,16 @@ connectDB();
 
 // 2. Middlewares (CORS ko sabse upar rakho)
 app.use(cors({
-  // Array mein local aur live dono URLs daal do
   origin: [
-    'http://localhost:5173', 
+    'http://localhost:5173',
     'https://crm-frontend-bay-seven.vercel.app'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+app.options('*', cors()); // ⭐ add this
 
 app.use(express.json()); // JSON data read karne ke liye
 
