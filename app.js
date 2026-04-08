@@ -21,7 +21,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-app.options('*', cors()); // ⭐ add this
+ 
 
 app.use(express.json()); // JSON data read karne ke liye
 
