@@ -14,6 +14,7 @@ connectDB();
 app.use(cors({
   origin: [
     'http://localhost:5173',
+    'https://crm-imglobal-seven.vercel.app/',
     'https://crm-frontend-bay-seven.vercel.app'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
