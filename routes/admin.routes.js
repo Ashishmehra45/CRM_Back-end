@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const Lead = require('../models/LeadModel');
-const User = require('../models/registerModel');    
+const User = require('../models/WorkerModel');    
 const { onlyWorker, onlyAdmin } = require('../middleware/authMiddleware');
 
 router.get('/admin-stats', onlyWorker, onlyAdmin, async (req, res) => {
@@ -65,9 +65,6 @@ router.get('/get-all-leads', onlyWorker, onlyAdmin, async (req, res) => {
   }
 });
 
-// =========================================================
-// 2. ADMIN TIMELINE NOTE (Ye Timeline me Boss Note dalega)
-// =========================================================
 router.post('/add-note/:id', onlyWorker, onlyAdmin, async (req, res) => {
   try {
     const { note, addedBy } = req.body;

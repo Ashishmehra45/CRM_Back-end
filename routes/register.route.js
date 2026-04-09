@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const User = require('../models/registerModel');
+const User = require('../models/WorkerModel');
 const bcrypt = require('bcryptjs');
 const { onlyWorker } = require('../middleware/authMiddleware');
 const jwt = require('jsonwebtoken');

@@ -4,6 +4,7 @@ const cors = require('cors');
 const connectDB = require('./config/connectDB');
 const workerRoutes = require('./routes/register.route');
 const adminRoutes = require('./routes/admin.routes');
+const forgotRoutes = require('./routes/forgot.route');
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.use(express.json()); // JSON data read karne ke liye
 // Dhyan de: register.route.js mein agar path '/' hai, toh URL niche wala hoga
 app.use('/api/workers', workerRoutes);  
 app.use('/api/admin', adminRoutes);
+app.use('/api/forgot', forgotRoutes); // Forgot Password Route
 
 
 // 4. Server Start
