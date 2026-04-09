@@ -60,7 +60,7 @@ router.get('/get-all-leads', onlyWorker, onlyAdmin, async (req, res) => {
     console.error("Admin Get Leads Error:", err);
     res.status(500).json({ 
       success: false, 
-      message: "Server se leads fetch karne mein dikkat aayi." 
+      message: "Server error occurred while fetching leads." 
     });
   }
 });

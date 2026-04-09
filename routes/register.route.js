@@ -100,9 +100,11 @@ router.post('/add-lead', onlyWorker, async (req, res) => {
     console.error("Lead Error:", err);
     res.status(500).json({
       success: false,
-      message: "Server side par dikkat aa gayi!",
+      message: "Server error occurred while creating lead. Try again later!",
       error: err.message
     });
+    
+
   }
 });
 
@@ -134,7 +136,7 @@ router.get('/get-leads', onlyWorker,  async (req, res) => {
     console.error("Fetch Leads Error:", err);
     res.status(500).json({ 
       success: false, 
-      message: "Server se leads laane mein dikkat aayi!",
+      message: "Server not able to fetch leads right now. Try again later!",
       error: err.message
     });
   }
