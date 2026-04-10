@@ -37,7 +37,7 @@ const LeadSchema = new mongoose.Schema({
 
   leadStatus: { 
     type: String, 
-    enum: ["Attempted to contact", "Contact in future", "Contacted", "Junk Lead", "Lost Lead", "Not Contacted", "Pre Qualified", "Not Qualified", "-None-", ""]
+    enum: ["Attempted to contact", "Contact in future", "Contacted", "Junk Lead", "Lost Lead", "Not Contacted", "Pre Qualified", "Not Qualified", "-None-", "Acquired", "Hot Leads"]
   },
 
   rating: { 

@@ -196,4 +196,70 @@ router.put('/update-lead/:id', onlyWorker, async (req, res) => {
   }
 });
 
+router.put('/edit-note/:leadId/:noteId', async (req, res) => {
+  try {
+    const { leadId, noteId } = req.params;
+    const { note } = req.body;
+
+    const lead = await Lead.findById(leadId);
+    if (!lead) return res.status(404).json({ success: false, message: "Lead not found!" });
+
+    // Note dhoondo array ke andar
+    const noteIndex = lead.timeline.findIndex(n => n._id.toString() === noteId);
+    if (noteIndex === -1) return res.status(404).json({ success: false, message: "Note not found!" });
+
+    // Note update karo aur save karo
+    lead.timeline[noteIndex].note = note;
+    await lead.save();
+
+    res.status(200).json({ success: true, message: "Note updated!", timeline: lead.timeline });
+  } catch (error) {
+    console.log("Edit Note Error:", error);
+    res.status(500).json({ success: false, message: "Server error while editing note." });
+  }
+});
+
+// ==========================================
+// 3. DELETE TIMELINE NOTE ROUTE
+// ==========================================
+router.delete('/delete-note/:leadId/:noteId', async (req, res) => {
+  try {
+    const { leadId, noteId } = req.params;
+
+    // MongoDB ka $pull operator array me se specific item nikal deta hai
+    const lead = await Lead.findByIdAndUpdate(
+      leadId,
+      { $pull: { timeline: { _id: noteId } } },
+      { new: true } // Return updated document
+    );
+
+    if (!lead) return res.status(404).json({ success: false, message: "Lead not found!" });
+
+    res.status(200).json({ success: true, message: "Note deleted!", timeline: lead.timeline });
+  } catch (error) {
+    console.log("Delete Note Error:", error);
+    res.status(500).json({ success: false, message: "Server error while deleting note." });
+  }
+});
+
+router.delete('/delete-lead/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // MongoDB ka findByIdAndDelete method direct document uda deta hai
+    // Note: Agar teri leads 'Worker' model me save ho rahi hain toh 'Worker' likhna, 
+    // agar 'Lead' model me ho rahi hain toh 'Lead' likhna.
+    const deletedLead = await Lead.findByIdAndDelete(id); 
+
+    if (!deletedLead) {
+      return res.status(404).json({ success: false, message: "Lead not found!" });
+    }
+
+    res.status(200).json({ success: true, message: "Lead completely deleted!" });
+  } catch (error) {
+    console.log("Delete Lead Error:", error);
+    res.status(500).json({ success: false, message: "Server error while deleting lead." });
+  }
+});
+
 module.exports = router;
