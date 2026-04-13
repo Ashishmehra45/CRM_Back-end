@@ -4,6 +4,29 @@ const bcrypt = require('bcryptjs');
 const { onlyWorker } = require('../middleware/authMiddleware');
 const jwt = require('jsonwebtoken');
 const Lead = require('../models/LeadModel');
+// 🔥 ADDED: Notification Model import kiya
+const Notification = require('../models/Notification'); 
+
+// 🔥 ADDED: Notification save karne ka helper function
+const logActivity = async (message, type, performedBy, leadName) => {
+  try {
+    // Check kar rahe hain ki data sahi aa raha hai ya nahi
+    console.log("📢 Attempting to save notification:", { message, type, performedBy, leadName });
+
+    const newNotif = new Notification({
+      message: message || "Did something",
+      type: type || "note",
+      performedBy: performedBy || "User",
+      leadName: leadName || "a Lead"
+    });
+
+    const savedNotif = await newNotif.save();
+    console.log("✅ SUCCESS: Notification saved to Database!", savedNotif._id);
+    
+  } catch (err) {
+    console.error("❌ DATABASE ERROR (Notification):", err.message);
+  }
+};
 
 router.post('/register', async (req, res) => {
   try {
@@ -17,6 +40,9 @@ router.post('/register', async (req, res) => {
 
     const newUser = new User({ fullName, email, password: hashedPassword });
     await newUser.save();
+
+    // 🔥 NOTIFICATION LOG
+    await logActivity("New worker registered", "add", fullName, "System");
 
     res.status(201).json({ message: "User created successfully!" });
   } catch (err) {
@@ -84,11 +110,13 @@ router.post('/add-lead', onlyWorker, async (req, res) => {
     const newLead = new Lead({
       ...req.body,           
       createdBy: req.user.id, 
-      // 🔥 SAFETY NET: Agar purana token hua toh crash nahi hoga, default naam le lega
       workerName: req.user.fullName || "Worker (Need Re-login)" 
     });
 
     const savedLead = await newLead.save();
+
+    // 🔥 NOTIFICATION LOG
+    await logActivity("Created a new lead for", "add", req.user.fullName || "Worker", companyName);
 
     res.status(201).json({
       success: true,
@@ -103,29 +131,20 @@ router.post('/add-lead', onlyWorker, async (req, res) => {
       message: "Server error occurred while creating lead. Try again later!",
       error: err.message
     });
-    
-
   }
 });
 
 router.get('/get-leads', onlyWorker,  async (req, res) => {
   try {
-    // 1. Frontend se bheji hui category nikalenge (URL query se)
     const { category } = req.query; 
-    
-    // 2. Default Query: Sirf ussi worker ki leads dikhao jisne login kiya hai
     let query = { createdBy: req.user.id };
 
-    // 3. Category Filter Logic: 
-    // Agar category 'All' nahi hai aur kuch aayi hai, toh query mein add kar do
     if (category && category !== "All") {
       query.category = category;
     }
 
-    // 4. Database se leads dhundo aur nayi wali sabse upar dikhao (sort)
     const leads = await Lead.find(query).sort({ createdAt: -1 });
 
-    // 5. Frontend ko mast data bhej do
     res.status(200).json({
       success: true,
       count: leads.length,
@@ -162,8 +181,11 @@ router.post('/add-note/:id', onlyWorker, async (req, res) => {
           } 
         }
       },
-      { new: true } // updated data wapas mangne ke liye
+      { new: true } 
     );
+
+    // 🔥 NOTIFICATION LOG
+    await logActivity("Added a new timeline note to", "note", req.user.fullName || "Worker", updatedLead.companyName);
 
     res.status(200).json({
       success: true,
@@ -175,16 +197,19 @@ router.post('/add-note/:id', onlyWorker, async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
 router.put('/update-lead/:id', onlyWorker, async (req, res) => {
   try {
     const leadId = req.params.id;
     
-    // Database mein update karo
     const updatedLead = await Lead.findByIdAndUpdate(
       leadId,
-      { $set: req.body }, // Jo bhi data frontend se aaye sab update kar do
+      { $set: req.body }, 
       { new: true }
     );
+
+    // 🔥 NOTIFICATION LOG
+    await logActivity("Updated lead details for", "update", req.user.fullName || "Worker", updatedLead.companyName);
 
     res.status(200).json({
       success: true,
@@ -196,7 +221,7 @@ router.put('/update-lead/:id', onlyWorker, async (req, res) => {
   }
 });
 
-router.put('/edit-note/:leadId/:noteId', async (req, res) => {
+router.put('/edit-note/:leadId/:noteId', onlyWorker, async (req, res) => {
   try {
     const { leadId, noteId } = req.params;
     const { note } = req.body;
@@ -204,13 +229,14 @@ router.put('/edit-note/:leadId/:noteId', async (req, res) => {
     const lead = await Lead.findById(leadId);
     if (!lead) return res.status(404).json({ success: false, message: "Lead not found!" });
 
-    // Note dhoondo array ke andar
     const noteIndex = lead.timeline.findIndex(n => n._id.toString() === noteId);
     if (noteIndex === -1) return res.status(404).json({ success: false, message: "Note not found!" });
 
-    // Note update karo aur save karo
     lead.timeline[noteIndex].note = note;
     await lead.save();
+
+    // 🔥 NOTIFICATION LOG
+    await logActivity("Edited a timeline note in", "note", req.user.fullName || "Worker", lead.companyName);
 
     res.status(200).json({ success: true, message: "Note updated!", timeline: lead.timeline });
   } catch (error) {
@@ -219,21 +245,20 @@ router.put('/edit-note/:leadId/:noteId', async (req, res) => {
   }
 });
 
-// ==========================================
-// 3. DELETE TIMELINE NOTE ROUTE
-// ==========================================
-router.delete('/delete-note/:leadId/:noteId', async (req, res) => {
+router.delete('/delete-note/:leadId/:noteId', onlyWorker, async (req, res) => {
   try {
     const { leadId, noteId } = req.params;
 
-    // MongoDB ka $pull operator array me se specific item nikal deta hai
     const lead = await Lead.findByIdAndUpdate(
       leadId,
       { $pull: { timeline: { _id: noteId } } },
-      { new: true } // Return updated document
+      { new: true } 
     );
 
     if (!lead) return res.status(404).json({ success: false, message: "Lead not found!" });
+
+    // 🔥 NOTIFICATION LOG
+    await logActivity("Deleted a timeline note from", "delete", req.user.fullName || "Worker", lead.companyName);
 
     res.status(200).json({ success: true, message: "Note deleted!", timeline: lead.timeline });
   } catch (error) {
@@ -242,18 +267,18 @@ router.delete('/delete-note/:leadId/:noteId', async (req, res) => {
   }
 });
 
-router.delete('/delete-lead/:id', async (req, res) => {
+router.delete('/delete-lead/:id', onlyWorker, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // MongoDB ka findByIdAndDelete method direct document uda deta hai
-    // Note: Agar teri leads 'Worker' model me save ho rahi hain toh 'Worker' likhna, 
-    // agar 'Lead' model me ho rahi hain toh 'Lead' likhna.
     const deletedLead = await Lead.findByIdAndDelete(id); 
 
     if (!deletedLead) {
       return res.status(404).json({ success: false, message: "Lead not found!" });
     }
+
+    // 🔥 NOTIFICATION LOG
+    await logActivity("Permanently deleted the lead", "delete", req.user.fullName || "Worker", deletedLead.companyName);
 
     res.status(200).json({ success: true, message: "Lead completely deleted!" });
   } catch (error) {

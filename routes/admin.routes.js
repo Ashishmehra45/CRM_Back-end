@@ -1,7 +1,18 @@
 const router = require('express').Router();
 const Lead = require('../models/LeadModel');
-const User = require('../models/WorkerModel');    
+const User = require('../models/WorkerModel');
+const Notification = require('../models/Notification');    
 const { onlyWorker, onlyAdmin } = require('../middleware/authMiddleware');
+
+router.get('/notifications', async (req, res) => {
+  // return res.status(401).json({ message: "Testing session expire" });
+  try {
+    const notifications = await Notification.find().sort({ createdAt: -1 }).limit(50);
+    res.status(200).json({ success: true, data: notifications });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error fetching notifications" });
+  }
+});
 
 router.get('/admin-stats', onlyWorker, onlyAdmin, async (req, res) => {
   try {
@@ -45,6 +56,7 @@ router.get('/admin-stats', onlyWorker, onlyAdmin, async (req, res) => {
   }
   
 });
+
 router.get('/get-all-leads', onlyWorker, onlyAdmin, async (req, res) => {
   try {
     // Bina kisi 'createdBy' filter ke saari leads utha lo (Latest wali upar)
@@ -71,7 +83,7 @@ router.post('/add-note/:id', onlyWorker, onlyAdmin, async (req, res) => {
     const leadId = req.params.id;
 
     if (!note) {
-      return res.status(400).json({ success: false, message: "Note khali nahi ho sakta!" });
+      return res.status(400).json({ success: false, message: "note does not exist!" });
     }
 
     // Lead dhundo aur timeline array mein admin ka VIP note push karo
@@ -91,8 +103,16 @@ router.post('/add-note/:id', onlyWorker, onlyAdmin, async (req, res) => {
     );
 
     if (!updatedLead) {
-      return res.status(404).json({ success: false, message: "Lead nahi mili!" });
+      return res.status(404).json({ success: false, message: "lead not found!" });
     }
+
+    // 🔥 BAS YE LOGIC ADD KIYA HAI NOTIFICATION KE LIYE 🔥
+    await Notification.create({
+      message: "Added an admin instruction to",
+      type: "note",
+      performedBy: addedBy || "Admin",
+      leadName: updatedLead.companyName || "a lead"
+    });
 
     res.status(200).json({
       success: true,
@@ -105,4 +125,5 @@ router.post('/add-note/:id', onlyWorker, onlyAdmin, async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
 module.exports = router;
