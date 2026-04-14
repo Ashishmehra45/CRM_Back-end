@@ -1,43 +1,25 @@
-const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 const sendEmail = async (options) => {
   try {
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,
-      family: 4, // ✅ IPv4 fix (Render issue solve)
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      },
-      tls: {
-        rejectUnauthorized: false
-      }
-    });
-
-    // ✅ Transport check (important)
-    await transporter.verify();
-    console.log("SMTP Connected ✅");
-
-    const mailOptions = {
-      from: `IMGLOBAL CRM <${process.env.EMAIL_USER}>`,
+    const msg = {
       to: options.email,
+      from: `IMGLOBAL CRM <${process.env.EMAIL_USER}>`, // ✅ verified sender
       subject: options.subject,
       text: options.message,
       html: options.html,
     };
 
-    const info = await transporter.sendMail(mailOptions);
+    const info = await sgMail.send(msg);
 
-    console.log("Mail Sent ✅", info.response);
+    console.log("Mail Sent ✅");
 
     return true;
 
   } catch (error) {
-    console.error("Mail Error ❌", error.message);
-
-    // ❗ important: error throw karo taaki controller handle kare
+    console.error("Mail Error ❌", error.response?.body || error.message);
     throw new Error("Email sending failed");
   }
 };
