@@ -3,6 +3,10 @@ const Lead = require('../models/LeadModel');
 const User = require('../models/WorkerModel');
 const Notification = require('../models/Notification');    
 const { onlyWorker, onlyAdmin } = require('../middleware/authMiddleware');
+// 🔥 ADDED: Notification Model import kiya
+const WorkerNotification = require('../models/workerNotification'); // Naya wala model Apna path check kar lena
+
+
 
 router.get('/notifications', async (req, res) => {
   // return res.status(401).json({ message: "Testing session expire" });
@@ -77,7 +81,8 @@ router.get('/get-all-leads', onlyWorker, onlyAdmin, async (req, res) => {
   }
 });
 
-router.post('/add-note/:id', onlyWorker, onlyAdmin, async (req, res) => {
+// 🔥 ROUTE: Add Admin Note & Send Notification to Worker
+router.post('/add-note/:id',onlyWorker, onlyAdmin, async (req, res) => { // 🔥 onlyWorker hata diya taaki API crash na ho
   try {
     const { note, addedBy } = req.body;
     const leadId = req.params.id;
@@ -86,7 +91,7 @@ router.post('/add-note/:id', onlyWorker, onlyAdmin, async (req, res) => {
       return res.status(400).json({ success: false, message: "note does not exist!" });
     }
 
-    // Lead dhundo aur timeline array mein admin ka VIP note push karo
+    // 1. Lead dhundo aur timeline array mein admin ka VIP note push karo
     const updatedLead = await Lead.findByIdAndUpdate(
       leadId,
       {
@@ -94,7 +99,7 @@ router.post('/add-note/:id', onlyWorker, onlyAdmin, async (req, res) => {
           timeline: { 
             note: note, 
             type: "admin_instruction", // Isse frontend pe Blue + Sparkle aayega
-            addedBy: addedBy || "Admin", 
+            addedBy: addedBy || "Ravi K Tiwari (Admin)", 
             timestamp: new Date()
           } 
         }
@@ -106,13 +111,30 @@ router.post('/add-note/:id', onlyWorker, onlyAdmin, async (req, res) => {
       return res.status(404).json({ success: false, message: "lead not found!" });
     }
 
-    // 🔥 BAS YE LOGIC ADD KIYA HAI NOTIFICATION KE LIYE 🔥
+    // 2. 🔥 Admin ke Activity Log ke liye (Jo pehle se tha)
     await Notification.create({
       message: "Added an admin instruction to",
       type: "note",
-      performedBy: addedBy || "Admin",
+      performedBy: addedBy || "Ravi K Tiwari (Admin)",
       leadName: updatedLead.companyName || "a lead"
     });
+
+    // 3. 🔥 NAYA LOGIC: Worker ko direct Notification (Laal Dot) bhejne ke liye
+    try {
+        await WorkerNotification.create({
+          message: note,
+          type: 'admin_instruction',
+          leadId: updatedLead._id,
+          leadName: updatedLead.companyName || "Unknown Company",
+          
+          // 🔥 TERA WORKER ID: Apne Lead schema ke hisaab se check kar lena ki ID kahan save hoti hai
+          targetWorkerId: updatedLead.workerId || updatedLead.createdBy, 
+          
+          addedBy: addedBy || "Ravi K Tiwari (Admin)"
+        });
+    } catch(notifError) {
+        console.log("Timeline updated but failed to save Worker Notification:", notifError);
+    }
 
     res.status(200).json({
       success: true,
@@ -125,5 +147,43 @@ router.post('/add-note/:id', onlyWorker, onlyAdmin, async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
+
+router.post('/broadcast',onlyWorker, onlyAdmin, async (req, res) => {
+  try {
+    const { message } = req.body;
+   
+
+    const newNotif = new WorkerNotification({
+      message: message,
+      type: 'global',
+      targetWorkerId: null, // 🔥 NULL matlab sabko dikhega
+      addedBy: 'Ravi K Tiwari (Admin)'
+    });
+    
+    await newNotif.save();
+    res.status(200).json({ success: true, message: "Broadcast sent!" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Broadcast failed" });
+  }
+});
+
+// 🔥 ROUTE: Get Broadcast History
+router.get('/broadcast-history',onlyWorker, onlyAdmin, async (req, res) => {
+  try {
+   
+    
+    // Wo saare messages lao jo 'global' hain, latest wale upar (sort -1)
+    const history = await WorkerNotification.find({ type: 'global' })
+                                            .sort({ createdAt: -1 })
+                                            .limit(20); // Last 20 messages
+                                            
+    res.status(200).json({ success: true, data: history });
+  } catch (error) {
+    console.error("Fetch Broadcast History Error:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch history" });
+  }
+});
+
 
 module.exports = router;

@@ -4,8 +4,10 @@ const bcrypt = require('bcryptjs');
 const { onlyWorker } = require('../middleware/authMiddleware');
 const jwt = require('jsonwebtoken');
 const Lead = require('../models/LeadModel');
+const workerNotification = require('../models/workerNotification'); // Naya wala model Apna path check kar lena 
+
 // 🔥 ADDED: Notification Model import kiya
-const Notification = require('../models/Notification'); 
+const Notification = require('../models/Notification'); // Apna path check kar lena
 
 // 🔥 ADDED: Notification save karne ka helper function
 const logActivity = async (message, type, performedBy, leadName) => {
@@ -27,6 +29,27 @@ const logActivity = async (message, type, performedBy, leadName) => {
     console.error("❌ DATABASE ERROR (Notification):", err.message);
   }
 };
+
+router.get('/notifications', onlyWorker, async (req, res) => {
+  try {
+    const currentWorkerId = req.user.id; // Tera auth middleware jo ID deta hai (req.user._id bhi ho sakta hai)
+
+    // 🔥 LOGIC: Wo saare message lao jisme targetWorkerId ya toh ye worker ho, ya phir null (sabke liye)
+    const notifications = await workerNotification.find({
+      $or: [
+        { targetWorkerId: currentWorkerId },
+        { targetWorkerId: null } // Global messages
+      ]
+    }).sort({ createdAt: -1 }).limit(30); // Latest 30 msg lao
+
+    res.status(200).json({ success: true, data: notifications });
+  } catch (error) {
+    console.error("Worker Notifications Error:", error);
+    res.status(500).json({ success: false, message: "Server error while fetching notifications." });
+  }
+});
+
+
 
 router.post('/register', async (req, res) => {
   try {
